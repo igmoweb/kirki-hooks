@@ -2,7 +2,7 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
     ready: function() {
         var control = this,
 
-        // The current value set in Control Class (set in Kirki_Customize_Repeater_Control::to_json() function)
+            // The current value set in Control Class (set in Kirki_Customize_Repeater_Control::to_json() function)
             settingValue = this.params.value;
 
         // The hidden field that keeps the data saved (though we never update it)
@@ -58,6 +58,12 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
             .on( 'keyup change', '.repeater-fields input', function( e ) {
                 control.updateField.call( control, e );
             });
+
+        this.container
+            .on( 'click', '.repeater-remove', function( e ) {
+                control.deleteRow( jQuery(this).data( 'row' ) );
+            });
+
     },
 
 
@@ -95,19 +101,19 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
      */
     addRow: function( data ) {
         var control = this,
-        i,
+            i,
 
-        // The template for the new row (defined on Kirki_Customize_Repeater_Control::render_content() )
-        template = control.repeaterTemplate(),
+            // The template for the new row (defined on Kirki_Customize_Repeater_Control::render_content() )
+            template = control.repeaterTemplate(),
 
-        // Get the current setting value
-        settingValue = this.getValue(),
+            // Get the current setting value
+            settingValue = this.getValue(),
 
-        // Saves the new setting data
-        newRowSetting = {},
+            // Saves the new setting data
+            newRowSetting = {},
 
-        // Data to pass to the template
-        templateData;
+            // Data to pass to the template
+            templateData;
 
         if ( template ) {
 
@@ -136,15 +142,24 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
                 }
             }
 
-            settingValue.push( newRowSetting );
+            settingValue[this.currentIndex] = newRowSetting;
             this.setValue( settingValue, true );
 
             this.currentIndex++;
 
         }
     },
-    deleteRow: function() {
-
+    deleteRow: function( index ) {
+        var currentSettings = this.getValue();
+        console.log(currentSettings);
+        if ( currentSettings[ index ] ) {
+            currentSettings.splice( index, 1 );
+            var row = this.container.find( '.repeater-row[data-row="' + index + '"]').first();
+            if ( row ) {
+                row.detach();
+                this.setValue( currentSettings, true );
+            }
+        }
     },
     updateField: function( e ) {
         var element = jQuery( e.target ),
@@ -163,64 +178,3 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
         control.setValue( currentSettings, true );
     }
 });
-
-
-/**wp.customize.controlConstructor['kirki-repeater'] = wp.customize.Control.extend({
-    ready: function () {
-        var control = this;
-
-        var api = wp.customize;
-        console.log(wp.customize.value('my-repeater[0]')({subsetting_1: "AAAA", subsetting_2: "BBB"}));
-
-        this.container.on('keyup', 'input',
-            function () {
-                var input = jQuery(this);
-                var row = input.data('repeater-row');
-                var field = input.data('repeater-field');
-
-                var value = control.settings[row].get();
-                value[field] = input.val();
-                control.settings[row].set(value);
-
-                // Update also the params so we can add a new row easier
-                control.params.value[row] = value;
-            }
-        );
-
-        this.container.on('click', 'button', function (e) {
-            e.preventDefault();
-
-            control.increaseIndex();
-            control.addNewSetting(control.getCurrentIndex());
-
-            var template = wp.template(control.templateSelector);
-            if (template && control.container) {
-                control.container.html(template(control.params));
-            }
-        });
-    },
-    increaseIndex: function () {
-        this.params.currentIndex++;
-    },
-    getCurrentIndex: function () {
-        return this.params.currentIndex;
-    },
-    addNewSetting: function (index) {
-        // We add first a setting to the params
-        var value;
-        var params = this.params;
-        params.settings[index] = params.controlID + '[' + index + ']';
-
-        // Add the new value
-        params.value[index] = {};
-        for (i = 0; i < params.fieldsProperties.length; i++) {
-            value = params.fieldsProperties[i].default || "";
-            params.value[index][params.fieldsProperties[i].id] = value;
-        }
-        // Add the new row
-        params.rows[index] = params.fieldsProperties;
-        console.log(this.params);
-    }
-});
- */
-

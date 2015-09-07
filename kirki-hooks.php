@@ -16,6 +16,23 @@ function kirki_hooks_customize_register( $wp_customize ) {
 			return $value;
 		}
 
+		public function _preview_filter( $original ) {
+			if ( ! $this->is_current_blog_previewed() ) {
+				return $original;
+			}
+
+			$undefined = new stdClass(); // symbol hack
+			$post_value = json_decode( urldecode( $this->post_value( $undefined ) ) );
+			if ( $undefined === $post_value ) {
+				$value = $this->_original_value;
+			} else {
+				$value = $post_value;
+			}
+
+			$return = $this->multidimensional_replace( $original, $this->id_data['keys'], $value );
+			return $return;
+		}
+
 		protected function update( $value ) {
 			$value = json_decode( urldecode( $value ) );
 
@@ -113,6 +130,7 @@ function kirki_hooks_customize_register( $wp_customize ) {
 
 					#>
 					<div class="repeater-row" data-row="{{{ index }}}">
+						<i class="dashicons dashicons-no-alt repeater-remove" data-row="{{{ index }}}"></i>
 					<#
 
 					for ( i in data ) {

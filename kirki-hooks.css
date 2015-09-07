@@ -6,6 +6,12 @@
     border:1px solid #999;
     margin-top:.5rem;
     background: #eee;
+    position:relative;
+}
+.customize-control-repeater .repeater-fields .repeater-row .repeater-remove {
+    cursor: pointer;
+    position: absolute;
+    right: .5rem;
 }
 
 .customize-control-repeater button.repeater-add {
