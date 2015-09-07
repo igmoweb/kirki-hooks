@@ -1,0 +1,14 @@
+.customize-control-repeater .repeater-fields .repeater-row label {
+    margin-bottom:12px;
+}
+.customize-control-repeater .repeater-fields .repeater-row {
+    padding:.5rem;
+    border:1px solid #999;
+    margin-top:.5rem;
+    background: #eee;
+}
+
+.customize-control-repeater button.repeater-add {
+    margin-top:1rem;
+}
+
