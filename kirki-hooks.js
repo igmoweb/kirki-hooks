@@ -171,7 +171,7 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
 
                 // Remove it from DOM
                 row.slideUp( 300, function() {
-                    $(this).detach();
+                    jQuery(this).detach();
                 });
 
                 // Update the new setting values
