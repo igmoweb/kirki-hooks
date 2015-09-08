@@ -4,8 +4,12 @@ add_action( 'customize_register', 'kirki_hooks_customize_register', 500 );
 function kirki_hooks_customize_register( $wp_customize ) {
 
 	class Kirki_Customize_Repeater_Setting extends WP_Customize_Setting {
+
 		public function __construct( $manager, $id, $args = array() ) {
 			parent::__construct( $manager, $id, $args );
+
+			// Will onvert the setting from JSON to array. Must be triggered very soon
+			add_filter( "customize_sanitize_{$this->id}", array( $this, 'sanitize_repeater_setting' ), 10, 1 );
 		}
 
 		public function value() {
@@ -16,58 +20,39 @@ function kirki_hooks_customize_register( $wp_customize ) {
 			return $value;
 		}
 
-		public function _preview_filter( $original ) {
-			if ( ! $this->is_current_blog_previewed() ) {
-				return $original;
-			}
-
-			$undefined = new stdClass(); // symbol hack
-			$post_value = json_decode( urldecode( $this->post_value( $undefined ) ) );
-			if ( $undefined === $post_value ) {
-				$value = $this->_original_value;
-			} else {
-				$value = $post_value;
-			}
-
-			$return = $this->multidimensional_replace( $original, $this->id_data['keys'], $value );
-			return $return;
-		}
-
-		protected function update( $value ) {
+		/**
+		 * Convert the JSON encoded setting coming from Customizer to an Array
+		 *
+		 * @param $value URL Encoded JSON Value
+		 *
+		 * @return array
+		 */
+		public function sanitize_repeater_setting( $value ) {
 			$value = json_decode( urldecode( $value ) );
 
 			if ( empty( $value ) || ! is_array( $value ) )
-				$value = array();
+				$sanitized = array();
+			else
+				$sanitized = $value;
 
-			// Customizer will send up an array of objects,
-			// we are going to cast those to arrays
-			foreach ( $value as $row => $object ) {
-				$value[ $row ] = (array)$object;
+			// Make sure that every row is an array, not an object
+			foreach ( $sanitized as $key => $_value ) {
+				if ( empty( $_value ) ) {
+					unset( $sanitized[ $key ] );
+				}
+				else {
+					$sanitized[ $key ] = (array)$_value;
+				}
+
 			}
 
-			switch( $this->type ) {
-				case 'theme_mod' :
-					return $this->_update_theme_mod( $value );
+			// Reindex array
+			$sanitized = array_values( $sanitized );
 
-				case 'option' :
-					return $this->_update_option( $value );
-
-				default :
-
-					/**
-					 * Fires when the {@see WP_Customize_Setting::update()} method is called for settings
-					 * not handled as theme_mods or options.
-					 *
-					 * The dynamic portion of the hook name, `$this->type`, refers to the type of setting.
-					 *
-					 * @since 3.4.0
-					 *
-					 * @param mixed                $value Value of the setting.
-					 * @param WP_Customize_Setting $this  WP_Customize_Setting instance.
-					 */
-					return do_action( 'customize_update_' . $this->type, $value, $this );
-			}
+			return $sanitized;
 		}
+
+
 	}
 
 	class Kirki_Customize_Repeater_Control extends WP_Customize_Control {
@@ -130,7 +115,10 @@ function kirki_hooks_customize_register( $wp_customize ) {
 
 					#>
 					<div class="repeater-row" data-row="{{{ index }}}">
-						<i class="dashicons dashicons-no-alt repeater-remove" data-row="{{{ index }}}"></i>
+						<div class="repeater-row-header">
+							<span class="repeater-row-number"></span>
+							<span class="repeater-row-close" data-row="{{{ index }}}"><i class="dashicons dashicons-no-alt repeater-remove"></i></span>
+						</div>
 					<#
 
 					for ( i in data ) {
@@ -139,6 +127,7 @@ function kirki_hooks_customize_register( $wp_customize ) {
 
 						field = data[i];
 
+						#><div class="repeater-field repeater-field-{{{ field.type }}}"><#
 						if ( field.type === 'text' ) {
 							#>
 								<label>
@@ -153,7 +142,16 @@ function kirki_hooks_customize_register( $wp_customize ) {
 							<#
 						}
 						else if ( field.type === 'checkbox' ) {
-								console.log(field.default);
+							#>
+							<label>
+								<input type="checkbox" value="true" data-field="{{{ field.id }}}" data-row="{{{ index }}}" <# if ( field.default ) { #> checked="checked" <# } #> />
+								<# if ( field.description ) { #>
+									{{ field.description }}
+								<# } #>
+							</label>
+							<#
+						}
+						else if ( field.type === 'select' ) {
 							#>
 							<label>
 								<# if ( field.label ) { #>
@@ -162,16 +160,30 @@ function kirki_hooks_customize_register( $wp_customize ) {
 								<# if ( field.description ) { #>
 									<span class="description customize-control-description">{{ field.description }}</span>
 								<# } #>
-
-								<# if ( field.default ) { #>
-									<input type="checkbox" name="" data-field="{{{ field.id }}}" data-row="{{{ index }}}" checked="checked" />
-								<# } else { #>
-									<input type="checkbox" name="" data-field="{{{ field.id }}}" data-row="{{{ index }}}" />
-								<# } #>
+								<select data-field="{{{ field.id }}}" data-row="{{{ index }}}">
+									<# for ( i in field.choices ) { #>
+										<# if ( field.choices.hasOwnProperty( i ) ) { #>
+											<option value="{{{ i }}}" <# if ( field.default == i ) { #> selected="selected" <# } #>>{{ field.choices[i] }}</option>
+										<# } #>
+									<# } #>
+								</select>
 
 							</label>
 							<#
 						}
+						else if ( field.type == 'textarea' ) {
+							#>
+								<# if ( field.label ) { #>
+									<span class="customize-control-title">{{ field.label }}</span>
+								<# } #>
+								<# if ( field.description ) { #>
+									<span class="description customize-control-description">{{ field.description }}</span>
+								<# } #>
+								<textarea rows="5" data-field="{{{ field.id }}}" data-row="{{{ index }}}">{{ field.default }}</textarea>
+							<#
+						}
+
+						#></div><#
 					}
 
 					#>
@@ -189,34 +201,44 @@ function kirki_hooks_customize_register( $wp_customize ) {
 	// All this will be passed to a new Kirki class/function
 	$repeater_id = 'my-repeater';
 	$section_id = 'repeater_test';
-	$button_label = "Add new Row";
 
-	$structure = array(
+	$fields = array(
 		'subsetting_1' => array(
 			'type' => 'text',
 			'label' => 'Setting A',
+			'description' => 'lalala',
 			'default' => 'Yeah'
 		),
 		'subsetting_2' => array(
 			'type' => 'text',
 			'label' => 'Setting B',
+			'description' => 'lalala',
+			'default' => ''
+		),
+		'subsetting_3' => array(
+			'type' => 'checkbox',
+			'description' => 'A checkbox',
+			'default' => true
+		),
+		'subsetting_4' => array(
+			'label' => 'A selector',
+			'type' => 'select',
+			'description' => 'lalala',
+			'default' => '',
+			'choices' => array(
+				'' => 'None',
+				'choice_1' => 'Choice 1',
+				'choice_2' => 'Choice 2'
+			)
+		),
+		'subsetting_5' => array(
+			'type' => 'textarea',
+			'label' => 'A textarea',
+			'description' => 'lalalala',
 			'default' => ''
 		)
 	);
 	// End of data. Everything will be done by Kirki from now on
-
-
-
-
-	foreach ( $structure as $key => $value ) {
-		if ( ! isset( $value['default'] ) )
-			$structure[ $key ]['default'] = '';
-
-		if ( ! isset( $value['label'] ) )
-			$structure[ $key ]['default'] = '';
-		$structure[ $key ]['id'] = $key;
-	}
-
 
 	$wp_customize->add_section( $section_id, array(
 		'title'          => __( 'Repeater Test', 'themename' ),
@@ -224,27 +246,73 @@ function kirki_hooks_customize_register( $wp_customize ) {
 		'transport'     => 'refresh'
 	) );
 
-
-	$wp_customize->add_setting( new Kirki_Customize_Repeater_Setting( $wp_customize, $repeater_id, array(
+	$args = array(
 		'type' => 'theme_mod',
 		'capability' => 'manage_options',
 		'theme_supports' => '',
 		'transport' => 'refresh',
 		'sanitize_callback' => '',
-		'sanitize_js_callback' => ''
-	) ) );
-
-	$control = new Kirki_Customize_Repeater_Control( $wp_customize, $repeater_id, array(
+		'sanitize_js_callback' => '',
 		'section' => $section_id,
-		'fields' => $structure,
-		'button_label' => $button_label,
+		'fields' => $fields,
+		'button_label' => 'Add new Row',
 		'label' => '',
 		'description' => '',
 		'priority' => ''
+	);
+
+	kirki_repeater_black_box( $repeater_id, $args );
+
+}
+
+
+function kirki_repeater_black_box( $repeater_id, $args = array() ) {
+	global $wp_customize;
+
+	$defaults = array(
+		'type' => 'theme_mod',
+		'capability' => 'manage_options',
+		'theme_supports' => '',
+		'transport' => 'refresh',
+		'sanitize_callback' => '',
+		'sanitize_js_callback' => '',
+		'section' => '',
+		'fields' => array(),
+		'button_label' => __( 'Add new Row', 'kirki' ),
+		'label' => '',
+		'description' => '',
+		'priority' => ''
+	);
+
+	$args = wp_parse_args( $args, $defaults );
+
+	foreach ( $args['fields'] as $key => $value ) {
+		if ( ! isset( $value['default'] ) )
+			$args['fields'][ $key ]['default'] = '';
+
+		if ( ! isset( $value['label'] ) )
+			$args['fields'][ $key ]['label'] = '';
+		$args['fields'][ $key ]['id'] = $key;
+	}
+
+
+	$wp_customize->add_setting( new Kirki_Customize_Repeater_Setting( $wp_customize, $repeater_id, array(
+		'type' => $args['type'],
+		'capability' => $args['capability'],
+		'theme_supports' => $args['theme_supports'],
+		'transport' => $args['transport'],
+		'sanitize_callback' => $args['sanitize_callback'],
+		'sanitize_js_callback' => $args['sanitize_js_callback']
+	) ) );
+
+	$control = new Kirki_Customize_Repeater_Control( $wp_customize, $repeater_id, array(
+		'section' => $args['section'],
+		'fields' => $args['fields'],
+		'button_label' => $args['button_label'],
+		'label' => $args['label'],
+		'description' => $args['description'],
+		'priority' => $args['priority']
 	) );
 
 	$wp_customize->add_control( $control );
-
-
-
 }

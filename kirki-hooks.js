@@ -1,15 +1,15 @@
 wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
     ready: function() {
-        var control = this,
+        var control = this;
 
-            // The current value set in Control Class (set in Kirki_Customize_Repeater_Control::to_json() function)
-            settingValue = this.params.value;
+        // The current value set in Control Class (set in Kirki_Customize_Repeater_Control::to_json() function)
+        var settingValue = this.params.value;
 
         // The hidden field that keeps the data saved (though we never update it)
-        this.settingField = this.container.find('[data-customize-setting-link]').first(),
+        this.settingField = this.container.find('[data-customize-setting-link]').first();
 
-            // Set the field value for the first time, we'll fill it up later
-            this.setValue([], false);
+        // Set the field value for the first time, we'll fill it up later
+        this.setValue( [], false );
 
         // The DIV that holds all the rows
         this.repeaterFieldsContainer = control.container.find('.repeater-fields').first();
@@ -55,12 +55,12 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
         }
 
         this.container
-            .on( 'keyup change', '.repeater-fields input', function( e ) {
+            .on( 'keyup change', '.repeater-fields input, .repeater-fields select, .repeater-fields textarea', function( e ) {
                 control.updateField.call( control, e );
             });
 
         this.container
-            .on( 'click', '.repeater-remove', function( e ) {
+            .on( 'click', '.repeater-row-close', function( e ) {
                 control.deleteRow( jQuery(this).data( 'row' ) );
             });
 
@@ -118,7 +118,9 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
         if ( template ) {
 
             // The control structure is going to define the new fields
-            templateData = control.params.fields;
+            // We need to clone control.params.fields. Assigning it
+            // ould result in a reference assignment.
+            templateData = jQuery.extend( true, {}, control.params.fields );
 
             // But if we have passed data, we'll use the data values instead
             if ( data ) {
@@ -148,33 +150,74 @@ wp.customize.controlConstructor['repeater'] = wp.customize.Control.extend({
             this.currentIndex++;
 
         }
+
+        this.prependListNumbers();
     },
+    /**
+     * Delete a row in the repeater setting
+     *
+     * @param index Position of the row in the complete Setting Array
+     */
     deleteRow: function( index ) {
         var currentSettings = this.getValue();
-        console.log(currentSettings);
+
         if ( currentSettings[ index ] ) {
-            currentSettings.splice( index, 1 );
+            // Find the row
             var row = this.container.find( '.repeater-row[data-row="' + index + '"]').first();
             if ( row ) {
-                row.detach();
+                // The row exists, let's delete it
+                delete currentSettings[index];
+
+                // Remove it from DOM
+                row.slideUp( 300, function() {
+                    $(this).detach();
+                });
+
+                // Update the new setting values
                 this.setValue( currentSettings, true );
             }
         }
+
+        this.prependListNumbers();
     },
+
+    /**
+     * Update a single field inside a row.
+     * Triggered when a field has changed
+     *
+     * @param e Event Object
+     */
     updateField: function( e ) {
         var element = jQuery( e.target ),
         control = this,
-        currentSettings = this.getValue();
+        currentSettings = this.getValue(),
+        type = element.attr( 'type' )
 
         // Gather data about the field row + ID
         var row = element.data( 'row' );
         var fieldId = element.data( 'field' );
 
         if ( typeof currentSettings[row][fieldId] == undefined )
-            return false;
+            return;
 
-        // Update the settings
-        currentSettings[row][fieldId] = element.val();
+        if ( type == 'checkbox' ) {
+            currentSettings[row][fieldId] = element.is( ':checked' );
+        }
+        else {
+            // Update the settings
+            currentSettings[row][fieldId] = element.val();
+        }
+
         control.setValue( currentSettings, true );
+
+    },
+
+    /**
+     * Generate numbers for every row so the user can easily see what row is he editing
+     */
+    prependListNumbers: function() {
+        this.container.find( '.repeater-row-number' ).each( function( index ) {
+            jQuery(this).html( index + 1 );
+        });
     }
 });
