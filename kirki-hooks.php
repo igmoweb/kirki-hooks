@@ -127,6 +127,9 @@ function kirki_hooks_customize_register( $wp_customize ) {
 
 						field = data[i];
 
+						if ( ! field.type )
+							continue;
+
 						#><div class="repeater-field repeater-field-{{{ field.type }}}"><#
 						if ( field.type === 'text' ) {
 							#>
@@ -167,6 +170,27 @@ function kirki_hooks_customize_register( $wp_customize ) {
 										<# } #>
 									<# } #>
 								</select>
+
+							</label>
+							<#
+						}
+						else if ( field.type === 'radio' ) {
+							#>
+							<label>
+								<# if ( field.label ) { #>
+									<span class="customize-control-title">{{ field.label }}</span>
+								<# } #>
+								<# if ( field.description ) { #>
+									<span class="description customize-control-description">{{ field.description }}</span>
+								<# } #>
+
+								<# for ( i in field.choices ) { #>
+									<# if ( field.choices.hasOwnProperty( i ) ) { #>
+										<label>
+											<input type="radio" data-field="{{{ field.id }}}" data-row="{{{ index }}}" name="{{{ data.controlId }}}-{{{ field.id }}}-{{{ index }}}" value="{{{ i }}}" <# if ( field.default == i ) { #> checked="checked" <# } #>> {{ field.choices[i] }} <br/>
+										</label>
+									<# } #>
+								<# } #>
 
 							</label>
 							<#
@@ -236,7 +260,17 @@ function kirki_hooks_customize_register( $wp_customize ) {
 			'label' => 'A textarea',
 			'description' => 'lalalala',
 			'default' => ''
-		)
+		),
+		'subsetting_6' => array(
+			'label' => 'A radio',
+			'type' => 'radio',
+			'description' => 'yipiyai',
+			'default' => 'choice-1',
+			'choices' => array(
+				'choice-1' => 'First choice',
+				'choice-2' => 'Second choice'
+			)
+		),
 	);
 	// End of data. Everything will be done by Kirki from now on
 
